@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <SDL/SDL2.h>
+#include <SDL2/SDL.h>
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
@@ -38,57 +38,77 @@ int distance_checker(struct circle_info circle , int x ,  int y){
 	};
 };
 
-int initilizor(SDL_Texture **texture , struct circle_info circle ,  int h , int w , uint32_t *framebuffer){
+int initilizor(struct circle_info circle ,  int h , int w , uint32_t *framebuffer){
 	for(int x = 0 ; x<h ; x++){
-		printf("WORKING ON ROW : %d ",x);
+		/*printf("WORKING ON ROW : %d ",x);*/
 		for( int y = 0 ; y<w ; y++){
-			if(distance_checker(x,y) <0){
-				framebuffer[(x*width)+y] = CIRCLE_CLR;
-			}else if(distance_checker(x,y) >0){
-				framebuffer[(x*width)+y] = BACKGROUND_CLR;
+			if(distance_checker(circle,x,y) <0){
+				framebuffer[(x*w)+y] = CIRCLE_CLR;
+			}else if(distance_checker(circle,x,y) >0){
+				framebuffer[(x*w)+y] = BACKGROUND_CLR;
 			};
 		};
 	};
 };
 
 int texture_creator(SDL_Texture **texture, SDL_Renderer *renderer , int h , int w , uint32_t *framebuffer){
-
-	*texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STREAMING,w,h);
-	if(!*texture){
-		perror("TEXTURE CREATION ERROR \n");
-		return -1;
+	if(*texture == NULL){
+		*texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STREAMING,w,h);
+		if(!*texture){
+         		perror("TEXTURE CREATION ERROR \n");
+	        	return -1;
+        	};
 	};
 
-	SDL_UpdateTexture(texture,NULL,framebuffer,width*sizeof(uint32_t));
-	SDL_RenderCopy(renderer,texture,NULL,NULL);
+	SDL_UpdateTexture(*texture,NULL,framebuffer,w*sizeof(uint32_t));
+	SDL_RenderCopy(renderer,*texture,NULL,NULL);
 	SDL_RenderPresent(renderer);
 };
 
-int event_handler(struct Event *event, SDL_Renderer *renderer , struct circle_info *circle , int h , int w , uint32_t *framebuffer,  struct SDL_Texture **texture){
+int event_handler(SDL_Event *event, SDL_Renderer *renderer , struct circle_info *circle , int h , int w , uint32_t *framebuffer,  struct SDL_Texture **texture){
 	int flag;
 	flag = 1;
 
 
 	if(initilizor(*circle,h,w,framebuffer) ,0){
 		printf("ERROR IN INITLIZING THE CIRCLE IN THE FRAMEBUFFER \n");
+		return -1;
 	};
 
 	if(texture_creator(texture,renderer,h,w,framebuffer) <0){
 		printf("OPERATION FAILED : TEXTURE CREATION \n");
-		rerturn -1 ;
+		return -1 ;
 	};
 
 	while(flag){
 		while(SDL_PollEvent(event) !=0){
+			if(event->type == SDL_QUIT){
+				flag = 0 ;
+			}else if(event->type == SDL_MOUSEMOTION && event->motion.state != 0){
+				circle->origin.x =event->motion.x ;
+				circle->origin.y =event->motion.y ;
+			};
 
+			if(initilizor(*circle,h,w,framebuffer)<0){
+				printf("ERROR IN INIILIZING THE FRAMEBUFFER \n");
+				return -1;
+			};
+
+			if(texture_creator(texture,renderer,h,w,framebuffer)<0){
+				printf("OPERATION FAILED : TEXTURE CREATION \n");
+				return -1;
+			};
 		};
 	};
+
+	return 0;
 };
 
 int circle_info_taker(struct circle_info *circle){
-	char choice[50];
+	char choice[1024];
 
 	printf("ENTER THE ORIGIN POINTS OF THE CIRCLE \n");
+	printf("ENTER THE X AXIS : ");
 	if(!fgets(choice,sizeof(choice),stdin)){
 		perror("INPUT ERROR \n");
 		return -1;
@@ -96,19 +116,25 @@ int circle_info_taker(struct circle_info *circle){
 
 	circle->origin.x = (double)strtol(choice,NULL,10);
 
+	printf("\n");
+
+	printf("ENTER THE Y AXIS : ");
 	if(!fgets(choice,sizeof(choice),stdin)){
 		perror("INPUT ERROR \n");
 		return -1;
 	};
 
 	circle->origin.y = (double)strtol(choice,NULL,10);
+	printf("\n");
 
+	printf("ENTER THE RADIUS : ");
 	if(!fgets(choice,sizeof(choice),stdin)){
 		perror("INPUT ERROR \n");
 		return -1;
 	};
 
 	circle->radius = (double)strtol(choice,NULL,10);
+	printf("\n");
 
 	printf("INFO TAKEN \n");
 
@@ -116,6 +142,7 @@ int circle_info_taker(struct circle_info *circle){
 };
 
 int renderer_creator(SDL_Renderer **renderer , SDL_Window *window){
+	char choice[50];
 	printf("DEFINING THE RENDERER \n");
 
 	printf("1>CPU \n 2>GPU \n");
@@ -127,9 +154,9 @@ int renderer_creator(SDL_Renderer **renderer , SDL_Window *window){
 	choice[strcspn(choice,"\n")] = '\0';
 
 	if(strcmp(choice,"GPU") == 0){
-        	*renderer = SDL_CreateRenderer(window,-1,);
+        	*renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_ACCELERATED);
 	}else if(strcmp(choice,"CPU") == 0){
-        	*renderer = SDL_CreateRenderer(window,-1,);
+        	*renderer = SDL_CreateRenderer(window,-1,SDL_RENDERER_SOFTWARE);
 	};
 
 	if(!*renderer){
@@ -178,25 +205,27 @@ int  main(int argc , char *args[]){
 	SDL_Window *window;
 	SDL_Renderer *renderer;
 	SDL_Texture *texture ;
-	SDL_Event *event;
+	SDL_Event event;
 	int height , width ;
+
+	window , renderer , texture = NULL;
 	uint32_t *framebuffer;
 	char name[20];
 	struct circle_info circle ;
 
-	if(parser(argc,args,height,width,name) <0){
+	if(parser(argc,args,&height,&width,name) <0){
 		printf("OPERATION FAILED : COMMAND PARSING \n");
 		return -1;
 	};
 
-	framebuffer = (uint32_t) malloc(height * width * sizeof(uint32_t));
+	framebuffer = (uint32_t *) malloc(height * width * sizeof(uint32_t));
 
 	if(window_creator(&window,height,width,name) <0){
 		printf("OPERATION FAILED : WINDOW CREATION \n");
 		return -1;
 	};
 
-	if(renderer_creation(&renderer,window)<0){
+	if(renderer_creator(&renderer,window)<0){
 		printf("OPERATION FAILED : RENDERER CREATION \n");
 		return -1;
 	};
@@ -206,7 +235,7 @@ int  main(int argc , char *args[]){
 		return -1;
 	};
 
-	if(event_handler(&circle,height,width,framebuffer,&texture) <0){
+	if(event_handler( &event,renderer ,&circle,height,width,framebuffer,&texture) <0){
 		printf("OPERATION FAILED : EVENT HANDLER \n");
 		return -1;
 	};
