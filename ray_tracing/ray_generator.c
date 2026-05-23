@@ -21,14 +21,14 @@ struct ray_info{
 };
 
 struct vec2 vec_add(struct ray_info rays , struct vec2 ray_normalized){
-	struct vec2 result
+	struct vec2 result;
 	result.x = rays.origin.x + ray_normalized.x ;
 	result.y = rays.origin.y + ray_normalized.y ;
 
 	return result;
 };
 
-int texture_implementation(struct Texture **texture , uint32_t *framebuffer , SDL_Renderer *renderer){
+int texture_implementation(SDL_Texture **texture , uint32_t *framebuffer , SDL_Renderer *renderer , int w , int h){
 	*texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STREAMING,w,h);
 	if(!*texture){
 		perror("TEXTURE CREATION \n");
@@ -36,13 +36,13 @@ int texture_implementation(struct Texture **texture , uint32_t *framebuffer , SD
 	};
 
 	SDL_UpdateTexture(*texture,NULL,framebuffer,w*sizeof(uint32_t));
-	SDL_RendererCopy(renderer,*texture,NULL,NULL);
+	SDL_RenderCopy(renderer,*texture,NULL,NULL);
 	SDL_RenderPresent(renderer);
 
 	return 1;
 };
 
-int ray_implementation(struct ray_info *rays , int number_of_rays ,  uint32_t *framebuffer){
+int ray_implement(struct ray_info *rays , int number_of_rays ,int h , int w ,  uint32_t *framebuffer){
 	struct vec2  ray_normalized , result ;
 	for(int i = 0 ; i<number_of_rays ; i++){
 		printf("implementing the ray %d structure \n",i);
@@ -52,7 +52,7 @@ int ray_implementation(struct ray_info *rays , int number_of_rays ,  uint32_t *f
 
 			result = vec_add(rays[i],ray_normalized);
 
-			framebuffer[(result.x * width) + result.y] = ray_color ;
+			framebuffer[((int)result.x * w) + ((int)result.y)] = ray_color ;
 		};
 	};
 
@@ -60,8 +60,7 @@ int ray_implementation(struct ray_info *rays , int number_of_rays ,  uint32_t *f
 	return 1;
 };
 
-int ray_creator(struct vec2 origin_info , struct ray_info *rays , int number_of_rays){
-	rays = (struct ray_info *) malloc(sizeof(struct ray_info) * number_of_rays);
+int ray_creator(struct vec2 origin_info , struct ray_info *rays,int number_of_rays, int h , int w , uint32_t *framebuffer){
 	int number_of_divide = 360 / number_of_rays ;
 	char choice[1000];
 	int  length;
@@ -73,21 +72,25 @@ int ray_creator(struct vec2 origin_info , struct ray_info *rays , int number_of_
 
 	length =  (int)strtol(choice,NULL,10);
 
+	double rad , radx , rady ;
+	for(int i = 0 ; i<number_of_rays ; i++){
 
-	for(int i = 0 ; i<360 ; i+=number_of_divide){
+		int angle =  i * number_of_divide ;
+		rad = angle * (pie/180);
+		rays[i].origin.x = origin_info.x;
+		rays[i].origin.y = origin_info.y;
 
-		rays[i]->origin.x = origin_info.x;
-		rays[i]->origin.y = origin_info.y;
+		radx = cos(angle);
+		rady = sin(angle);
+		rays[i].direction.x = radx;
+		rays[i].direction.y = rady;
 
-		rays[i]->direction.x = cos(i);
-		rays[i]->direction.y = sin(i);
-
-		rays[i]->length = length;
+		rays[i].length = length;
 	};
 
 	printf("RAYS DATA GENERATED ..... IMPLEMENTING THE RAY DATA ..... \n");
 
-	if(ray_implementation(rays,number_of_rays) <0){
+	if(ray_implement(rays,number_of_rays, h , w , framebuffer) <0){
 		printf("OPERATION FAILED : RAYS IMPLEMENTATION \n");
 		return -1;
 	};
@@ -96,9 +99,8 @@ int ray_creator(struct vec2 origin_info , struct ray_info *rays , int number_of_
 	return 1;
 };
 
-int ray_info_taker(struct ray_info *rays , int *number_of_rays){
+int ray_info_taker(struct ray_info **rays, struct vec2 *origin_info , int *number_of_rays , int h , int w , uint32_t*framebuffer){
 	char choice[1000];
-	struct vec2 origin_info ;
 	printf("ENTER THE RAY INFO \n");
 	printf("ENTER THE NUMBER OF RAYS : ");
 	if(!fgets(choice,sizeof(choice),stdin)){
@@ -107,16 +109,17 @@ int ray_info_taker(struct ray_info *rays , int *number_of_rays){
 	};
 
 	*number_of_rays = (int) strtol(choice,NULL,10);
+	*rays = (struct ray_info *)malloc(sizeof(struct ray_info) * (*number_of_rays));
 	printf("\n INPUTTED \n");
 
 	printf("ENTER THE ORIGIN OF THE RAYS \n");
 	printf("X axis : ");
 	if(!fgets(choice,sizeof(choice),stdin)){
 		perror("INPUT ERROR \n");
-		return -1
+		return -1;
 	};
 	printf("\n");
-	origin_info.x = (int)strtol(choice,NULL,10);
+	origin_info->x = (int)strtol(choice,NULL,10);
 
 	printf("Y axis : ");
 	if(!fgets(choice,sizeof(choice),stdin)){
@@ -124,9 +127,9 @@ int ray_info_taker(struct ray_info *rays , int *number_of_rays){
 		return -1;
 	};
 	printf("\n");
-	origin_info.y = (int)strtol(choice,NULL,10);
+	origin_info->y = (int)strtol(choice,NULL,10);
 
-	if(ray_creator(origin_info,rays,number_of_rays) <0){
+	if(ray_creator(*origin_info,*rays,*number_of_rays , h , w , framebuffer) <0){
 		printf("OPERATION FAILED : RAY CREATION \n");
 		return -1;
 	};
@@ -147,7 +150,7 @@ int window_creator(SDL_Window **window , int h , int w , char name[]){
 	};
 
 	printf("OPERATION COMPLETED : WINDOW CREATED \n");
-	return -1;
+	return 1;
 };
 
 int renderer_creator(SDL_Renderer **renderer ,  SDL_Window *window){
@@ -176,7 +179,7 @@ int renderer_creator(SDL_Renderer **renderer ,  SDL_Window *window){
 	};
 
 	printf("OPERATION COMPLETED : RENDERER CREATION ");
-	return -1;
+	return 1;
 
 };
 
@@ -196,41 +199,43 @@ int parser(int argc , char *args[], int *h , int *w , char name[]){
 	};
 
 	printf("argument extracted \n");
-	return -1;
+	return 1;
 };
 
 int main(int argc , char *args[]){
 	SDL_Window *window;
 	SDL_Renderer *renderer;
 	SDL_Texture *texture ;
+	struct vec2  origin_info;
 	uint32_t *framebuffer ;
-	int height , weight ;
-	struct origin_info *ray_origin;
-
-	if(parser(argc,args,&height,&width) <0){
+	int height , width ;
+	struct ray_info *ray_origin;
+	int number_of_rays;
+	char name[50];
+	if(parser(argc,args,&height,&width,name) <0){
 		printf("OPERATION FAILED : COMMAND PARSER \n");
 		return -1;
 	};
 
-	framebuffer = (uint32_t *) malloc(height*width);
+	framebuffer = (uint32_t *) malloc(sizeof(uint32_t) * height*width);
 
 	if(window_creator(&window , height , width , name)<0){
 		printf("OPERATION FAILED : WINDOW CREATION \n");
 		return -1;
 	};
 
-	if(renderer_creator(renderer , window )<0){
+	if(renderer_creator(&renderer , window )<0){
 		printf("OPERATION FAILED : RENDERER CREATION \n");
 		return -1;
 	};
 
-	if(ray_info_taker(ray_origin) <0){    /*has to also pass height and width in it and the framebuffer  */
+	if(ray_info_taker(&ray_origin,&origin_info, &number_of_rays , height , width , framebuffer) <0){    /*has to also pass height and width in it and the framebuffer  */
 
 		printf("OPERATION FAILED :  RAY CREATION \n");
 		return -1;
 	};
 
-	if(texture_implementor(&texture , framebuffer , renderer) <0){
+	if(texture_implementation(&texture , framebuffer , renderer , width ,  height) <0){
 		printf("OPERATION FAILED : TEXTURE CREATION \n");
 		return -1;
 	};
