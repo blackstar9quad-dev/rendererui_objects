@@ -8,7 +8,7 @@ struct color {
 	uint8_t green;
 	uint8_t blue;
 };
-
+software_redering_ui
 struct vec2{
 	double x ;
 	double y;
@@ -59,16 +59,48 @@ int quad_eq(struct circle_info circle , struct ray_info rays){
 		return 0;
 	};
 
-	t = (-b - (sqrt(4 * a * c))) / 2 *a ;
+	t = (-b - (sqrt(dis))) / 2 *a ;
 
 	return t ;
 }
 
-int implementor(struct circle_info circle , struct ray_info *rays){
+struct vec2 interaction_points_finder(struct ray_info rays , int t){
+	struct vec2 result ;
+
+	result.x = rays.origin.x + (t * rays.direction.x) ;
+	result.y = rays.origin.y + (t * rays.direction.y) ;
+
+	return result ;
+};
+
+void buffer_implementor(uint32_t *circlebuffer , struct vec2 interaction_points , int w ){
+	double x , y ;
+	x = interaction_points.x ;
+	y = interaction_points.y ;
+
+	circlebuffer[(x*w)+y] = RAYCOLOR;
 
 };
 
-int interaction_finder(){
+int implementor(struct circle_info circle , struct ray_info *rays ,  int number_of_rays){
+	struct vec2 interaction_points;
+	int result;
+	for(int i = 0 ; i<=number_of_rays ; i++){
+		if(quad_eq(circle , rays[i])<0){
+			printf("OPERATION FAILED");
+			return -1;
+		}else if(quad_eq(circle , rays[i]) == 0){
+			printf("NO interection with the circle \n");
+			return -1;
+		}else if(result=quad_eq(circle , rays[i]) >0){
+			if(interaction_points = (struct vec2)interaction_points_finder(rays[i] ,result) <0){
+				printf("OPERATION FAILED : COMPUTING INTERECTION POINTS \n");
+				return -1;
+			};
+
+			buffer_implementor(circlebuffer,interaction_points,w);
+		};
+	};
 };
 
 int ray_generator(struct ray_info **rays){
