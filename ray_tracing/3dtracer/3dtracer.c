@@ -3,6 +3,10 @@
 #include <SDL2/SDL.h>
 #include <math.h>
 
+#define MIN(a,b) (((a<b)) ? (a) : (b))
+#define SECOND_CLR 0xFF808080
+#define LIGHT_CLR  0x00FFDF00
+
 struct vec2{
 	double x ;
 	double y ;
@@ -32,6 +36,115 @@ struct camera_info{
 	int viewportdistance ; //used as z for the viewport points converted from the vec2 framebuffer
 };
 
+struct vec3 vec3sub(struct vec3 vector1 , struct vec3 vector2){
+	struct vec3 result ;
+
+	result.x = vector2.x - vector1.x ;
+	result.y = vector2.y - vector2.y ;
+	result.z = vector2.z - vector2.z ;
+
+	return result ;
+};
+
+int light_intensity(int x , int y ,int t , struct sphere_info sphere , struct camera_info camera,struct vec3 direction){
+	struct vec3 Vnormal , L , Q , P , N , hit_point;
+
+	hit_point.x = camera.origin.x + (t * direction.x);
+	hit_point.y = camera.origin.y + (t * direction.y);
+	hit_point.z = camera.origin.z + (t * direction.z);
+
+	Vnormal = vec3sub(sphere.origin,hit_point);
+
+	N = vec3div(Vnormal,sphere.radius);
+
+	Q = {10,10,10};
+
+	L = vec3sub(hit_point,Q);
+
+	
+
+};
+
+struct vec3 direction_finder(struct vec3  viewpoints ,  struct sphere_info sphere){
+	struct vec3 direction ;
+
+	direction =  vec3sub(camera.origin,viewpoints);
+
+	return direction ;
+};
+
+struct vec3 viewpoint_finder(int x , int y , struct camera_info camera){
+	struct vec3 viewpoints ;
+
+	viewpoints.x = ((x/w) - 0.5) * camera.viewportwidth;
+	viewpoints.y = (0.5 - (y/h)) * camera.viewportheight;
+	viewpoints.z = camera.viewportdistance ;
+
+	return viewpoints;
+};
+
+int result_finder(struct vec3 pointvalues){
+	double a,b,c , dis ,t , t1 , t2 ;
+	a = pointvalues.x ; 
+	b = pointvalues.y ;
+	c = pointvalues.z ;
+
+	dis =  (b * b) - (4 * a *c) ;
+
+	if(dis <0){
+		return 0;
+	};
+
+	t1   = (-b - (sqrt(dis))) / 2 * a;
+	t2   = (-b + (sqrt(dis))) / 2 * a;
+
+	t = MIN(t1,t2);
+
+	return t;
+};
+
+struct vec3 point_finder(struct sphere_info sphere , struct camera_info camera , struct vec3 direction){
+	struct vec3 pointvalues ;
+	double Ox,Oy,Oz,Cx,Cy,Cz,Dx,Dy,Dz,R;
+
+	Ox = camera.origin.x ;
+	Oy = camera.origin.y ;
+	Oz = camera.origin.z ;
+	Cx = sphere.origin.x ;
+	Cy = sphere.origin.y ;
+	Cz = sphere.origin.z ;
+	Dx = direction.x ;
+	Dy = direction.y ;
+	Dz = direction.z ;
+	R  = sphere.radius;
+
+	pointvalues.x = (Dx * Dx) + (Dy * Dy) + (Dz * Dz) ; //treated as a
+	pointvalues.y = 2*((Dx * (Ox - Cx)) + (Dy * (Oy - Dy)) + (Dz * (Oz - Cz))); //treated as b
+	pointvalues.z = ((Ox - Cx) * (Ox - Cx)) + ((Oy - Cy) * (Oy - Cy)) + ((Oz - Cz) * (Oz - Cz)); //treated as c
+
+	return pointvalues;
+};
+
+int initilizor(uint32_t *framebuffer ,struct sphere_info sphere , struct ray_info *rays , int number_of_rays ,  struct camera_info camera , int h , int w ){
+	struct vec3 viewpoints ,  direction ,  pointvalues;
+	int t;
+	for(int x = 0 ; x<h ; x++){
+		for(int y = 0 ; y<w ; y++){
+			viewpoints = viewpoint_finder(x,y,camera);
+			direction  = direction_finder(viewpoints,camera);
+			pointvalues = point_finder(sphere,camera,direction);
+
+			t = result_finder(pointvalues);
+
+			if(t>0){
+				intensity = light_intensity();
+				framebuffer[(x*w)+y] = LIGHT_CLR * intensity;
+			}else if(t==0){
+				framebuffer[(x*w)+y] = SECOND_CLR;
+			};
+		};
+	};
+};
 
 int camera_detail(struct camera_info *camera){
 	char choice[1000];
