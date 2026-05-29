@@ -40,15 +40,33 @@ struct vec3 vec3sub(struct vec3 vector1 , struct vec3 vector2){
 	struct vec3 result ;
 
 	result.x = vector2.x - vector1.x ;
-	result.y = vector2.y - vector2.y ;
-	result.z = vector2.z - vector2.z ;
+	result.y = vector2.y - vector1.y ;
+	result.z = vector2.z - vector1.z ;
 
 	return result ;
 };
 
-int light_intensity(int x , int y ,int t , struct sphere_info sphere , struct camera_info camera,struct vec3 direction){
-	struct vec3 Vnormal , L , Q , P , N , hit_point;
+struct vec3 vec3div(struct vec3 vector1 , double divisor){
+	struct vec3 result ;
+	
+	result.x = vector1.x / divisor ;
+	result.y = vector1.y / divisor ;
+	result.z = vector1.z / divisor ;
 
+	return result ;
+};
+
+double dot_multiply(struct vec3 vector1 , struct vec3 vector2){
+	double product ;
+
+	product  = ((vector1.x * vector2.x) + (vector1.y * vector2.y) + (vector1.z * vector2.z));
+
+	return product ;
+};
+
+double light_intensity(int x , int y ,int t , struct sphere_info sphere , struct camera_info camera,struct vec3 direction){
+	struct vec3 Vnormal , L  , P , N , hit_point;
+	double distance  , dot_product  ;
 	hit_point.x = camera.origin.x + (t * direction.x);
 	hit_point.y = camera.origin.y + (t * direction.y);
 	hit_point.z = camera.origin.z + (t * direction.z);
@@ -57,15 +75,22 @@ int light_intensity(int x , int y ,int t , struct sphere_info sphere , struct ca
 
 	N = vec3div(Vnormal,sphere.radius);
 
-	Q = {10,10,10};
+	struct vec3 Q = {10,10,10};
 
 	L = vec3sub(hit_point,Q);
 
-	
+	distance = sqrt((L.x * L.x) + (L.y * L.y) + (L.z * L.z));
 
+	L = vec3div(L,distance);
+
+	dot_product = dot_mutiply(N,L);
+
+	I = 1 * ((max(0,dot_product))/(distance*distance));
+
+	return I;
 };
 
-struct vec3 direction_finder(struct vec3  viewpoints ,  struct sphere_info sphere){
+struct vec3 direction_finder(struct vec3  viewpoints ,  struct camera_info camera){
 	struct vec3 direction ;
 
 	direction =  vec3sub(camera.origin,viewpoints);
@@ -83,7 +108,7 @@ struct vec3 viewpoint_finder(int x , int y , struct camera_info camera){
 	return viewpoints;
 };
 
-int result_finder(struct vec3 pointvalues){
+double result_finder(struct vec3 pointvalues){
 	double a,b,c , dis ,t , t1 , t2 ;
 	a = pointvalues.x ; 
 	b = pointvalues.y ;
@@ -95,8 +120,8 @@ int result_finder(struct vec3 pointvalues){
 		return 0;
 	};
 
-	t1   = (-b - (sqrt(dis))) / 2 * a;
-	t2   = (-b + (sqrt(dis))) / 2 * a;
+	t1   = (-b - (sqrt(dis))) / (2 * a);
+	t2   = (-b + (sqrt(dis))) / (2 * a);
 
 	t = MIN(t1,t2);
 
@@ -119,17 +144,17 @@ struct vec3 point_finder(struct sphere_info sphere , struct camera_info camera ,
 	R  = sphere.radius;
 
 	pointvalues.x = (Dx * Dx) + (Dy * Dy) + (Dz * Dz) ; //treated as a
-	pointvalues.y = 2*((Dx * (Ox - Cx)) + (Dy * (Oy - Dy)) + (Dz * (Oz - Cz))); //treated as b
+	pointvalues.y = 2*((Dx * (Ox - Cx)) + (Dy * (Oy - Cy)) + (Dz * (Oz - Cz))); //treated as b
 	pointvalues.z = ((Ox - Cx) * (Ox - Cx)) + ((Oy - Cy) * (Oy - Cy)) + ((Oz - Cz) * (Oz - Cz)); //treated as c
 
 	return pointvalues;
 };
 
-int initilizor(uint32_t *framebuffer ,struct sphere_info sphere , struct ray_info *rays , int number_of_rays ,  struct camera_info camera , int h , int w ){
+int initilizor(uint32_t *framebuffer ,struct sphere_info sphere ,struct camera_info camera , int h , int w ){
 	struct vec3 viewpoints ,  direction ,  pointvalues;
-	int t;
-	for(int x = 0 ; x<h ; x++){
-		for(int y = 0 ; y<w ; y++){
+	double t , intensity ;
+	for(int y = 0 ; y<h ; x++){
+		for(int x = 0 ; x<w ; y++){
 			viewpoints = viewpoint_finder(x,y,camera);
 			direction  = direction_finder(viewpoints,camera);
 			pointvalues = point_finder(sphere,camera,direction);
@@ -137,13 +162,17 @@ int initilizor(uint32_t *framebuffer ,struct sphere_info sphere , struct ray_inf
 			t = result_finder(pointvalues);
 
 			if(t>0){
-				intensity = light_intensity();
-				framebuffer[(x*w)+y] = LIGHT_CLR * intensity;
+				intensity = light_intensity(x,y,t,sphere,camera,direction);
+				framebuffer[(y*w)+x] = LIGHT_CLR * intensity;
 			}else if(t==0){
-				framebuffer[(x*w)+y] = SECOND_CLR;
+				framebuffer[(y*w)+x] = SECOND_CLR;
 			};
 		};
 	};
+
+	printf("OPERATION COMPLETED : FRAMEBUFFER MADE ... READY FOR RENDERING \n");
+
+	return 1;
 };
 
 int camera_detail(struct camera_info *camera){
@@ -367,4 +396,28 @@ int main(int argc , char *args[]){
 		printf("OPERATION FAILED : CAMERA CREATION \n");
 		return -1;
 	};
+
+	if(initilizor(framebuffer,sphere,camera,height,width)<0){
+		perror("OPEARTION FAILED :  LOADING THE FRAMEBUFFER \n");
+		return;
+	};
+
+	texture = SDL_CreateTexture(renderer,SDL_PIXELFORMAT_ARGB8888,SDL_TEXTUREACCESS_STREAMING,width,height);
+
+	if(!texture){
+		perror("SDL TEXTURE CREATION ERROR \n");
+		return -1;
+	};
+
+	SDL_UpdateTexture(texture,framebuffer,width*sizeof(uint32_t));
+	SDL_RenderCopy(renderer,texture,NULL,NULL);
+	SDL_RenderPresent(renderer);
+
+	sleep(100);
+
+	SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        SDL_Quit()
+
+	return 0;
 };
