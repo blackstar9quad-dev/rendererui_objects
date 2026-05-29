@@ -145,7 +145,7 @@ struct vec3 point_finder(struct sphere_info sphere , struct camera_info camera ,
 
 	pointvalues.x = (Dx * Dx) + (Dy * Dy) + (Dz * Dz) ; //treated as a
 	pointvalues.y = 2*((Dx * (Ox - Cx)) + (Dy * (Oy - Cy)) + (Dz * (Oz - Cz))); //treated as b
-	pointvalues.z = ((Ox - Cx) * (Ox - Cx)) + ((Oy - Cy) * (Oy - Cy)) + ((Oz - Cz) * (Oz - Cz)); //treated as c
+	pointvalues.z = ((Ox - Cx) * (Ox - Cx)) + ((Oy - Cy) * (Oy - Cy)) + ((Oz - Cz) * (Oz - Cz))-(R*R); //treated as c
 
 	return pointvalues;
 };
